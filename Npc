@@ -1,0 +1,89 @@
+local customName = "aimbot npc"
+local player = game.Players.LocalPlayer
+
+local tool = Instance.new("Tool")
+tool.RequiresHandle = false
+tool.Name = customName
+tool.Parent = player.Backpack
+
+local predictionX = 0.1
+local predictionY = 0.1
+local airshotPrediction = 0.1
+local shake = 8.5
+local autoPrediction = true
+
+local function getPing()
+    local stats = game:GetService("Stats")
+    local ping = stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+    return ping / 1000
+end
+
+local function pointCameraAtTarget(target)
+    if target and target:FindFirstChild("HumanoidRootPart") then
+        local humanoidRootPart = target.HumanoidRootPart
+        local camera = workspace.CurrentCamera
+
+        local predictedPosition = humanoidRootPart.Position
+        if autoPrediction then
+            local pingTime = getPing()
+            predictedPosition = humanoidRootPart.Position + humanoidRootPart.Velocity * pingTime
+        else
+            predictedPosition = humanoidRootPart.Position + Vector3.new(predictionX, airshotPrediction, predictionY)
+        end
+
+        local shakeOffset = Vector3.new(
+            (math.random() - 0.5) * shake,
+            (math.random() - 0.5) * shake,
+            (math.random() - 0.5) * shake
+        )
+
+        camera.CFrame = CFrame.new(camera.CFrame.Position, predictedPosition + shakeOffset)
+    end
+end
+
+local function findDummy()
+    local npcFolder = workspace:FindFirstChild("NPC")
+    if npcFolder then
+        return npcFolder:FindFirstChild("Dummy")
+    end
+    return nil
+end
+
+local isLocked = false
+local highlight
+
+tool.Activated:Connect(function()
+    isLocked = not isLocked
+    if isLocked then
+        local target = findDummy()
+        if target then
+            highlight = Instance.new("Highlight")
+            highlight.Adornee = target
+            highlight.FillColor = Color3.new(1, 1, 0)
+            highlight.Parent = target
+
+            game:GetService("RunService").RenderStepped:Connect(function()
+                if isLocked then
+                    pointCameraAtTarget(target)
+                end
+            end)
+        end
+    else
+        if highlight then
+            highlight:Destroy()
+            highlight = nil
+        end
+    end
+end)
+
+player.CharacterRemoving:Connect(function()
+    tool.Parent = player.Backpack
+end)
+
+local function connectCharacterAdded()
+    player.CharacterAdded:Connect(function()
+        tool.Parent = player.Backpack
+    end)
+end
+
+connectCharacterAdded()
